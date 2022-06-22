@@ -1,0 +1,1 @@
+# world2d - nice framework to create 2D games in Lua. Currently supports only Windows
