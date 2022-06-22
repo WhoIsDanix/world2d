@@ -1,7 +1,5 @@
--- This was made as a joke c:
-
 function world2d.Init()
-    world2d.Window.SetTitle("butter dogs (it's just collision check)")
+    world2d.Window.SetTitle("Collision Check")
     world2d.Window.SetResizable(false)
 
     player = world2d.Graphics.Sprite.new("examples/dog.png", 20, 20, 80, 80)

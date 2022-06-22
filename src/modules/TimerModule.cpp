@@ -10,7 +10,7 @@ bool world2d::TimerModule::Initialize() {
     sol::table luaWorld2dNamespace { lua.get<sol::table>("world2d") };
     sol::table luaTimerNamespace { lua.create_table() };
 
-    luaTimerNamespace.set_function("Delay", SDL_Delay);
+    luaTimerNamespace.set_function("Delay", &SDL_Delay);
 
     luaWorld2dNamespace["Timer"] = luaTimerNamespace;
     return true;

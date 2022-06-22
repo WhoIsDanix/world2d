@@ -10,6 +10,11 @@ bool world2d::KeyboardModule::Initialize() {
     sol::table luaWorld2dNamespace { lua.get<sol::table>("world2d") };
     sol::table luaKeyboardNamespace { lua.create_table() };
 
+    // ===== Event callbacks =====
+    luaWorld2dNamespace.set_function("KeyUp", [](const char* key, bool repeat) {});
+    luaWorld2dNamespace.set_function("KeyDown", [](const char* key, bool repeat) {});
+    // ===========================
+
     luaKeyboardNamespace.set_function("IsKeyPressed", [&](const char* key) {
         // TODO: make this safe (we don't check if key is valid)
 

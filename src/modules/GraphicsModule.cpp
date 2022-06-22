@@ -39,11 +39,6 @@ bool world2d::GraphicsModule::Initialize() {
     luaWorld2dNamespace.set_function("Render", []() {});
     // ==========================
 
-    // ===== Event callbacks =====
-    luaWorld2dNamespace.set_function("KeyUp", [](const char* key, bool repeat) {});
-    luaWorld2dNamespace.set_function("KeyDown", [](const char* key, bool repeat) {});
-    // ===========================
-
     sol::table luaGraphicsNamespace { luaState.create_table() };
 
     // ===== Structures =====

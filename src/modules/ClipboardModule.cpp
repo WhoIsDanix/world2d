@@ -11,9 +11,7 @@ bool world2d::ClipboardModule::Initialize() {
     sol::table luaWorld2dNamespace { lua.get<sol::table>("world2d") };
     sol::table luaClipboardNamespace { lua.create_table() };
 
-    luaClipboardNamespace.set_function("GetText", [&]() {
-        return SDL_GetClipboardText();
-    });
+    luaClipboardNamespace.set_function("GetText", &SDL_GetClipboardText);
 
     luaClipboardNamespace.set_function("HasText", [&]() {
         return static_cast<bool>(SDL_HasClipboardText());
