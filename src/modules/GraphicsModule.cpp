@@ -2,13 +2,16 @@
 
 #include "SDL/SDL.h"
 #include "SDL/SDL_image.h"
+#include "SDL/SDL_ttf.h"
 
 #include "world2d/lua/enums/DrawMode.h"
 
 #include "world2d/lua/structures/Texture.h"
 #include "world2d/lua/structures/Sprite.h"
+#include "world2d/lua/structures/Font.h"
 
 #include <cmath>
+#include <tuple>
 
 world2d::GraphicsModule::GraphicsModule() : world2d::Module() {
 
@@ -16,6 +19,7 @@ world2d::GraphicsModule::GraphicsModule() : world2d::Module() {
 
 world2d::GraphicsModule::~GraphicsModule() {
     IMG_Quit();
+    TTF_Quit();
 }
 
 bool world2d::GraphicsModule::Initialize() {
@@ -27,6 +31,11 @@ bool world2d::GraphicsModule::Initialize() {
     int flags = IMG_INIT_PNG;
     if ((IMG_Init(flags) & flags) != flags) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to initialize SDL image: %s", IMG_GetError());
+        return false;
+    }
+
+    if (TTF_Init() != 0) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to initialize SDL TTF: %s", TTF_GetError());
         return false;
     }
 
@@ -86,6 +95,11 @@ bool world2d::GraphicsModule::Initialize() {
         "IsCollidingWith",
         &world2d::Sprite::IsCollidingWith
     );
+
+    luaGraphicsNamespace.new_usertype<world2d::Font>("Font",
+        sol::constructors<world2d::Font(const char*, int)>(),
+        "GetTextSize", &world2d::Font::GetTextSize
+    );
     // ======================
 
     // ===== Enums =====
@@ -98,6 +112,12 @@ bool world2d::GraphicsModule::Initialize() {
     // ===== Functions =====
     luaGraphicsNamespace.set_function("SetDrawColor", [&](int r, int g, int b, int a) {
         SDL_SetRenderDrawColor(mEngine->GetSDLRenderer(), r, g, b, a);
+    });
+
+    luaGraphicsNamespace.set_function("GetDrawColor", [&]() {
+        Uint8 r, g, b, a;
+        SDL_GetRenderDrawColor(mEngine->GetSDLRenderer(), &r, &g, &b, &a);
+        return std::make_tuple(r, g, b, a);
     });
 
     luaGraphicsNamespace.set_function("Clear", [&]() {
@@ -190,11 +210,20 @@ bool world2d::GraphicsModule::Initialize() {
 
         [&](world2d::Sprite& sprite) {
             sprite.Draw();
+        },
+
+        [&](world2d::Font& font, const char* text, int x, int y) {
+            font.Draw(text, x, y);
+        },
+
+        [&](world2d::Font& font, const char* text, int x, int y, int w, int h) {
+            font.Draw(text, x, y, w, h);
         }
     ));
     // =====================
 
     luaWorld2dNamespace["Graphics"] = luaGraphicsNamespace;
+
     return true;
 }
 

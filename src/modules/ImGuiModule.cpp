@@ -4,21 +4,52 @@
 #include "imgui/imgui_impl_sdl.h"
 #include "imgui/imgui_impl_sdlrenderer.h"
 
-#include "world2d/lua/structures/ImGuiBool.h"
-#include "world2d/lua/structures/ImGuiFloat.h"
-#include "world2d/lua/structures/ImGuiInt.h"
+#include "world2d/lua/imgui/structures/Bool.h"
+#include "world2d/lua/imgui/structures/Float.h"
+#include "world2d/lua/imgui/structures/Int.h"
 
-#include "world2d/lua/structures/ImGuiFloatArray2.h"
-#include "world2d/lua/structures/ImGuiFloatArray3.h"
-#include "world2d/lua/structures/ImGuiFloatArray4.h"
+#include "world2d/lua/imgui/structures/FloatArray2.h"
+#include "world2d/lua/imgui/structures/FloatArray3.h"
+#include "world2d/lua/imgui/structures/FloatArray4.h"
 
-#include "world2d/lua/structures/ImGuiIntArray2.h"
-#include "world2d/lua/structures/ImGuiIntArray3.h"
-#include "world2d/lua/structures/ImGuiIntArray4.h"
+#include "world2d/lua/imgui/structures/IntArray2.h"
+#include "world2d/lua/imgui/structures/IntArray3.h"
+#include "world2d/lua/imgui/structures/IntArray4.h"
 
-#include "world2d/lua/structures/ImGuiStyleColors.h"
+#include "world2d/lua/imgui/structures/StyleColors.h"
+
+#include "world2d/lua/imgui/Widget.h"
+
+#include "world2d/lua/imgui/widgets/ChildWindowWidget.h"
+#include "world2d/lua/imgui/widgets/ClippingWidget.h"
+#include "world2d/lua/imgui/widgets/ColorEditorPickerWidget.h"
+#include "world2d/lua/imgui/widgets/ColorUtilitiesWidget.h"
+#include "world2d/lua/imgui/widgets/ComboBoxWidget.h"
+#include "world2d/lua/imgui/widgets/CursorLayoutWidget.h"
+#include "world2d/lua/imgui/widgets/DataPlottingWidget.h"
+#include "world2d/lua/imgui/widgets/DemoWidget.h"
+#include "world2d/lua/imgui/widgets/FocusActivationWidget.h"
+#include "world2d/lua/imgui/widgets/ItemWidgetUtilitiesWidget.h"
+#include "world2d/lua/imgui/widgets/KeyboardInputWidget.h"
+#include "world2d/lua/imgui/widgets/MainWidget.h"
+#include "world2d/lua/imgui/widgets/MenuWidget.h"
+#include "world2d/lua/imgui/widgets/MiscellaneousUtilitiesWidget.h"
+#include "world2d/lua/imgui/widgets/NextWindowUtilitiesWidget.h"
+#include "world2d/lua/imgui/widgets/ParametersStacksCurrentWindowWidget.h"
+#include "world2d/lua/imgui/widgets/ParametersStacksSharedWidget.h"
+#include "world2d/lua/imgui/widgets/SelectableWidget.h"
+#include "world2d/lua/imgui/widgets/SliderWidget.h"
+#include "world2d/lua/imgui/widgets/StyleWidget.h"
+#include "world2d/lua/imgui/widgets/TabWidget.h"
+#include "world2d/lua/imgui/widgets/TextUtilitiesWidget.h"
+#include "world2d/lua/imgui/widgets/TextWidget.h"
+#include "world2d/lua/imgui/widgets/TooltipWidget.h"
+#include "world2d/lua/imgui/widgets/WindowScrollingWidget.h"
+#include "world2d/lua/imgui/widgets/WindowUtilitiesWidget.h"
+#include "world2d/lua/imgui/widgets/WindowWidget.h"
 
 #include <vector>
+#include <tuple>
 
 world2d::ImGuiModule::ImGuiModule() : world2d::Module() {
 
@@ -28,18 +59,12 @@ world2d::ImGuiModule::~ImGuiModule() {
     if (mImGuiInitialized) {
         ImGui_ImplSDLRenderer_Shutdown();
         ImGui_ImplSDL2_Shutdown();
-        ImGui::DestroyContext();
+        ::ImGui::DestroyContext();
     }
 }
 
 bool world2d::ImGuiModule::Initialize() {
-    // TODO: move this code to InitializeImGuiLuaEnvironment (except InitializeImGui function registration)
-    // We need to make so ImGui lua environment is registered only when world2.ImGui.Initialize is called
-
     sol::state& lua = mEngine->GetLua();
-
-    // Still bad at using sol2
-    // Someone teach me please how to use it :c
 
     sol::table luaWorld2dNamespace { lua.get<sol::table>("world2d") };
     sol::table luaImGuiNamespace { lua.create_table() };
@@ -47,19 +72,65 @@ bool world2d::ImGuiModule::Initialize() {
     luaImGuiNamespace["Version"] = IMGUI_VERSION;
 
     // ===== Structures =====
+
+    // TODO: Finish ImGuiIO
     luaImGuiNamespace.new_usertype<ImGuiIO>("IO",
         "ConfigFlags", &ImGuiIO::ConfigFlags,
         "BackendFlags", sol::readonly(&ImGuiIO::BackendFlags),
         "DisplaySize", sol::readonly(&ImGuiIO::DisplaySize),
-        "DeltaTime", sol::readonly(&ImGuiIO::DeltaTime)
-    );
+        "DeltaTime", sol::readonly(&ImGuiIO::DeltaTime),
+        "IniSavingRate", &ImGuiIO::IniSavingRate,
+        "IniFilename", &ImGuiIO::IniFilename,
+        "LogFilename", &ImGuiIO::LogFilename,
+        "MouseDoubleClickTime", &ImGuiIO::MouseDoubleClickTime,
+        "MouseDoubleClickMaxDist", &ImGuiIO::MouseDoubleClickMaxDist,
+        "MouseDragThreshold", &ImGuiIO::MouseDragThreshold,
+        "KeyRepeatDelay", &ImGuiIO::KeyRepeatDelay,
+        "KeyRepeatRate", &ImGuiIO::KeyRepeatRate,
+        // void* UserData
 
-    luaImGuiNamespace.new_usertype<ImGuiStyleColors>("Colors",
-        sol::meta_function::index,
-        &world2d::ImGuiStyleColors::LuaIndexOperator,
+        "Fonts", &ImGuiIO::Fonts,
+        "FontGlobalScale", &ImGuiIO::FontGlobalScale,
+        "FontAllowUserScaling", &ImGuiIO::FontAllowUserScaling,
+        "FontDefault", &ImGuiIO::FontDefault,
+        "DisplayFramebufferScale", &ImGuiIO::DisplayFramebufferScale,
 
-        sol::meta_function::new_index,
-        &world2d::ImGuiStyleColors::LuaNewIndexOperator
+        "MouseDrawCursor", &ImGuiIO::MouseDrawCursor,
+        "ConfigMacOSXBehaviors", &ImGuiIO::ConfigMacOSXBehaviors,
+        "ConfigInputTrickleEventQueue", &ImGuiIO::ConfigInputTrickleEventQueue,
+        "ConfigInputTextCursorBlink", &ImGuiIO::ConfigInputTextCursorBlink,
+        "ConfigDragClickToInputText", &ImGuiIO::ConfigDragClickToInputText,
+        "ConfigWindowsResizeFromEdges", &ImGuiIO::ConfigWindowsResizeFromEdges,
+        "ConfigWindowsMoveFromTitleBarOnly", &ImGuiIO::ConfigWindowsMoveFromTitleBarOnly,
+        "ConfigMemoryCompactTimer", &ImGuiIO::ConfigMemoryCompactTimer,
+
+        "BackendPlatformName", sol::readonly(&ImGuiIO::BackendPlatformName),
+        "BackendRendererName", sol::readonly(&ImGuiIO::BackendRendererName),
+
+        "WantCaptureMouse", sol::readonly(&ImGuiIO::WantCaptureMouse),
+        "WantCaptureKeyboard", sol::readonly(&ImGuiIO::WantCaptureKeyboard),
+        "WantTextInput", sol::readonly(&ImGuiIO::WantTextInput),
+        "WantSetMousePos", sol::readonly(&ImGuiIO::WantSetMousePos),
+        "WantSaveIniSettings", sol::readonly(&ImGuiIO::WantSaveIniSettings),
+        "NavActive", sol::readonly(&ImGuiIO::NavActive),
+        "NavVisible", sol::readonly(&ImGuiIO::NavVisible),
+        "Framerate", sol::readonly(&ImGuiIO::Framerate),
+        "MetricsRenderVertices", sol::readonly(&ImGuiIO::MetricsRenderVertices),
+        "MetricsRenderIndices", sol::readonly(&ImGuiIO::MetricsRenderIndices),
+        "MetricsRenderWindows", sol::readonly(&ImGuiIO::MetricsRenderWindows),
+        "MetricsActiveWindows", sol::readonly(&ImGuiIO::MetricsActiveWindows),
+        "MetricsActiveAllocations", sol::readonly(&ImGuiIO::MetricsActiveAllocations),
+        "MouseDelta", sol::readonly(&ImGuiIO::MouseDelta),
+
+        "MousePos", sol::readonly(&ImGuiIO::MousePos),
+        // bool MouseDown[5];
+        "MouseWheel", sol::readonly(&ImGuiIO::MouseWheel),
+        "MouseWheelH", sol::readonly(&ImGuiIO::MouseWheelH),
+        "KeyCtrl", sol::readonly(&ImGuiIO::KeyCtrl),
+        "KeyShift", sol::readonly(&ImGuiIO::KeyShift),
+        "KeyAlt", sol::readonly(&ImGuiIO::KeyAlt),
+        "KeySuper", sol::readonly(&ImGuiIO::KeySuper)
+        // float NavInputs[ImGuiNavInput_COUNT];
     );
 
     luaImGuiNamespace.new_usertype<ImGuiStyle>("Style",
@@ -104,7 +175,7 @@ bool world2d::ImGuiModule::Initialize() {
         "CurveTessellationTol", &ImGuiStyle::CurveTessellationTol,
         "CircleTessellationMaxError", &ImGuiStyle::CircleTessellationMaxError,
         "Colors", sol::property([](ImGuiStyle& self) {
-            return world2d::ImGuiStyleColors(self.Colors);
+            return world2d::ImGui::StyleColors(self.Colors);
         })
     );
 
@@ -137,55 +208,85 @@ bool world2d::ImGuiModule::Initialize() {
         &ImVec4::w
     );
 
-    luaImGuiNamespace.new_usertype<ImGuiBool>("Bool",
-        sol::constructors<ImGuiBool(), ImGuiBool(bool)>(),
+    luaImGuiNamespace.new_usertype<::world2d::ImGui::Bool>("Bool",
+        sol::constructors<::world2d::ImGui::Bool(), ::world2d::ImGui::Bool(bool)>(),
 
         "value",
-        &ImGuiBool::value
+        &::world2d::ImGui::Bool::value
     );
 
-    luaImGuiNamespace.new_usertype<ImGuiFloat>("Float",
-        sol::constructors<ImGuiFloat(), ImGuiFloat(float)>(),
+    luaImGuiNamespace.new_usertype<::world2d::ImGui::Float>("Float",
+        sol::constructors<::world2d::ImGui::Float(), ::world2d::ImGui::Float(float)>(),
 
         "value",
-        &ImGuiFloat::value
+        &::world2d::ImGui::Float::value
     );
 
-    luaImGuiNamespace.new_usertype<ImGuiInt>("Int",
-        sol::constructors<ImGuiInt(), ImGuiInt(int)>(),
+    luaImGuiNamespace.new_usertype<::world2d::ImGui::FloatArray2>("FloatArray2",
+        sol::constructors<::world2d::ImGui::FloatArray2(), ::world2d::ImGui::FloatArray2(float, float)>(),
+
+        sol::meta_function::index,
+        &::world2d::ImGui::FloatArray2::LuaIndexOperator,
+
+        sol::meta_function::new_index,
+        &::world2d::ImGui::FloatArray2::LuaNewIndexOperator
+    );
+
+    luaImGuiNamespace.new_usertype<::world2d::ImGui::FloatArray3>("FloatArray3",
+        sol::constructors<::world2d::ImGui::FloatArray3(), ::world2d::ImGui::FloatArray3(float, float, float)>(),
+
+        sol::meta_function::index,
+        &::world2d::ImGui::FloatArray3::LuaIndexOperator,
+
+        sol::meta_function::new_index,
+        &::world2d::ImGui::FloatArray3::LuaNewIndexOperator
+    );
+
+    luaImGuiNamespace.new_usertype<::world2d::ImGui::FloatArray4>("FloatArray4",
+        sol::constructors<::world2d::ImGui::FloatArray4(), ::world2d::ImGui::FloatArray4(float, float, float, float)>(),
+
+        sol::meta_function::index,
+        &::world2d::ImGui::FloatArray4::LuaIndexOperator,
+
+        sol::meta_function::new_index,
+        &::world2d::ImGui::FloatArray4::LuaNewIndexOperator
+    );
+
+    luaImGuiNamespace.new_usertype<::world2d::ImGui::Int>("Int",
+        sol::constructors<::world2d::ImGui::Int(), ::world2d::ImGui::Int(int)>(),
 
         "value",
-        &ImGuiInt::value
+        &::world2d::ImGui::Int::value
     );
 
-    luaImGuiNamespace.new_usertype<ImGuiFloatArray2>("FloatArray2",
-        sol::constructors<ImGuiFloatArray2(), ImGuiFloatArray2(float, float)>(),
+    luaImGuiNamespace.new_usertype<::world2d::ImGui::IntArray2>("IntArray2",
+        sol::constructors<::world2d::ImGui::IntArray2(), ::world2d::ImGui::IntArray2(float, float)>(),
 
         sol::meta_function::index,
-        &ImGuiFloatArray2::LuaIndexOperator,
+        &::world2d::ImGui::IntArray2::LuaIndexOperator,
 
         sol::meta_function::new_index,
-        &ImGuiFloatArray2::LuaNewIndexOperator
+        &::world2d::ImGui::IntArray2::LuaNewIndexOperator
     );
 
-    luaImGuiNamespace.new_usertype<ImGuiFloatArray3>("FloatArray3",
-        sol::constructors<ImGuiFloatArray3(), ImGuiFloatArray3(float, float, float)>(),
+    luaImGuiNamespace.new_usertype<::world2d::ImGui::IntArray3>("IntArray3",
+        sol::constructors<::world2d::ImGui::IntArray3(), ::world2d::ImGui::IntArray3(float, float, float)>(),
 
         sol::meta_function::index,
-        &ImGuiFloatArray3::LuaIndexOperator,
+        &::world2d::ImGui::IntArray3::LuaIndexOperator,
 
         sol::meta_function::new_index,
-        &ImGuiFloatArray3::LuaNewIndexOperator
+        &::world2d::ImGui::IntArray3::LuaNewIndexOperator
     );
 
-    luaImGuiNamespace.new_usertype<ImGuiFloatArray4>("FloatArray4",
-        sol::constructors<ImGuiFloatArray4(), ImGuiFloatArray4(float, float, float, float)>(),
+    luaImGuiNamespace.new_usertype<::world2d::ImGui::IntArray4>("IntArray4",
+        sol::constructors<::world2d::ImGui::IntArray4(), ::world2d::ImGui::IntArray4(float, float, float, float)>(),
 
         sol::meta_function::index,
-        &ImGuiFloatArray4::LuaIndexOperator,
+        &::world2d::ImGui::IntArray4::LuaIndexOperator,
 
         sol::meta_function::new_index,
-        &ImGuiFloatArray4::LuaNewIndexOperator
+        &::world2d::ImGui::IntArray4::LuaNewIndexOperator
     );
     // ======================
 
@@ -433,1026 +534,41 @@ bool world2d::ImGuiModule::Initialize() {
     });
     // ================================
 
-    // ===== Multiple Flags =====
-    // (if you need multiple flags, you should use bitwise OR operator, but Lua have it in bit32 library but I struggle to load it)
+    // ===== Widget Initialization =====
+    std::vector<world2d::ImGui::Widget*> widgets {
+        world2d::ImGui::ChildWindowWidget::Get(),
+        world2d::ImGui::ClippingWidget::Get(),
+        world2d::ImGui::ColorEditorPickerWidget::Get(),
+        world2d::ImGui::ColorUtilitiesWidget::Get(),
+        world2d::ImGui::ComboBoxWidget::Get(),
+        world2d::ImGui::CursorLayoutWidget::Get(),
+        world2d::ImGui::DataPlottingWidget::Get(),
+        world2d::ImGui::DemoWidget::Get(),
+        world2d::ImGui::FocusActivationWidget::Get(),
+        world2d::ImGui::ItemWidgetUtilitiesWidget::Get(),
+        world2d::ImGui::KeyboardInputWidget::Get(),
+        world2d::ImGui::MainWidget::Get(),
+        world2d::ImGui::MenuWidget::Get(),
+        world2d::ImGui::MiscellaneousUtilitiesWidget::Get(),
+        world2d::ImGui::NextWindowUtilitiesWidget::Get(),
+        world2d::ImGui::ParametersStacksCurrentWindowWidget::Get(),
+        world2d::ImGui::ParametersStacksSharedWidget::Get(),
+        world2d::ImGui::SelectableWidget::Get(),
+        world2d::ImGui::SliderWidget::Get(),
+        world2d::ImGui::StyleWidget::Get(),
+        world2d::ImGui::TabWidget::Get(),
+        world2d::ImGui::TextUtilitiesWidget::Get(),
+        world2d::ImGui::TextWidget::Get(),
+        world2d::ImGui::TooltipWidget::Get(),
+        world2d::ImGui::WindowScrollingWidget::Get(),
+        world2d::ImGui::WindowUtilitiesWidget::Get(),
+        world2d::ImGui::WindowWidget::Get()
+    };
 
-    luaImGuiNamespace.set_function("MultipleFlags", [&](sol::variadic_args flags) {
-        int newflags = 0;
-
-        for (auto flag : flags) {
-            if (flag.get_type() == sol::type::number) {
-                newflags |= flag.as<int>();
-            } else {
-                // TODO: throw an error
-                luaL_error(lua.lua_state(), "Invalid number");
-            }
-        }
-
-        return newflags;
-    });
-
-    // ==========================
-
-    // ===== Main =====
-    luaImGuiNamespace.set_function("GetIO", &ImGui::GetIO);
-    luaImGuiNamespace.set_function("GetStyle", &ImGui::GetStyle);
-
-    luaImGuiNamespace.set_function("Button", sol::overload(
-        [&](const char* label) {
-            return ImGui::Button(label);
-        },
-
-        [&](const char* label, const ImVec2& size) {
-            return ImGui::Button(label, size);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("SmallButton", [&](const char* label) {
-        return ImGui::SmallButton(label);
-    });
-
-    luaImGuiNamespace.set_function("InvisibleButton", [&](const char* strId, const ImVec2& size) {
-        return ImGui::InvisibleButton(strId, size);
-    });
-
-    luaImGuiNamespace.set_function("Checkbox", [&](const char* label, ImGuiBool* imGuiBool) {
-        return ImGui::Checkbox(label, &(imGuiBool->value));
-    });
-
-    luaImGuiNamespace.set_function("RadioButton", [&](const char* label, bool active) {
-        return ImGui::RadioButton(label, active);
-    });
-
-    // TODO: add this version of function: bool RadioButton(const char* label, int* v, int v_button)
-
-    luaImGuiNamespace.set_function("ProgressBar", sol::overload(
-        [&](float fraction) {
-            ImGui::ProgressBar(fraction);
-        },
-
-        [&](float fraction, const ImVec2& sizeArg) {
-            ImGui::ProgressBar(fraction, sizeArg);
-        },
-
-        [&](float fraction, const ImVec2& sizeArg, const char* overlay) {
-            ImGui::ProgressBar(fraction, sizeArg, overlay);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("Bullet", [&]() {
-        ImGui::Bullet();
-    });
-    // ================
-
-    // ===== Demo =====
-    luaImGuiNamespace.set_function("ShowDemoWindow", sol::overload(
-        [&]() {
-            ImGui::ShowDemoWindow();
-        },
-
-        [&](ImGuiBool* pOpen) {
-            ImGui::ShowDemoWindow(&(pOpen->value));
-        }
-    ));
-
-    luaImGuiNamespace.set_function("ShowAboutWindow", sol::overload(
-        [&]() {
-            ImGui::ShowAboutWindow();
-        },
-
-        [&](ImGuiBool* pOpen) {
-            ImGui::ShowAboutWindow(&(pOpen->value));
-        }
-    ));
-
-    luaImGuiNamespace.set_function("ShowMetricsWindow", [&](ImGuiBool* pOpen) {
-        ImGui::ShowMetricsWindow(&(pOpen->value));
-    });
-
-    luaImGuiNamespace.set_function("ShowStyleSelector", &ImGui::ShowStyleSelector);
-    luaImGuiNamespace.set_function("ShowFontSelector", &ImGui::ShowFontSelector);
-    luaImGuiNamespace.set_function("ShowUserGuide", &ImGui::ShowUserGuide);
-    // ================
-
-    // ===== Styles =====
-    luaImGuiNamespace.set_function("StyleColorsDark", &ImGui::StyleColorsDark);
-    luaImGuiNamespace.set_function("StyleColorsClassic", &ImGui::StyleColorsClassic);
-    luaImGuiNamespace.set_function("StyleColorsLight", &ImGui::StyleColorsLight);
-    // ========================
-
-    // ===== Windows =====
-    luaImGuiNamespace.set_function("Begin", sol::overload(
-        [&](const char* name) {
-            return ImGui::Begin(name);
-        },
-
-        [&](const char* name, ImGuiBool* pOpen) {
-            return ImGui::Begin(name, &(pOpen->value));
-        },
-
-        [&](const char* name, ImGuiBool* pOpen, ImGuiWindowFlags flags) {
-            return ImGui::Begin(name, &(pOpen->value), flags);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("End", &ImGui::End);
-    // ===================
-
-    // ===== Child Windows =====
-    luaImGuiNamespace.set_function("BeginChild", sol::overload(
-        [&](const char* strId) {
-            return ImGui::BeginChild(strId);
-        },
-
-        [&](const char* strId, const ImVec2& size) {
-            return ImGui::BeginChild(strId, size);
-        },
-
-        [&](const char* strId, const ImVec2& size, bool border) {
-            return ImGui::BeginChild(strId, size, border);
-        },
-
-        [&](const char* strId, const ImVec2& size, bool border, ImGuiWindowFlags flags) {
-            return ImGui::BeginChild(strId, size, border, flags);
-        }
-    ));
-
-    // BeginChild version with ImGuiID
-    // bool BeginChild(ImGuiID id, const ImVec2& size = ImVec2(0,0), bool border = false, ImGuiWindowFlags flags = 0)
-
-    luaImGuiNamespace.set_function("EndChild", &ImGui::EndChild);
-    // =========================
-
-    // ===== Window Utilities =====
-    luaImGuiNamespace.set_function("IsWindowAppearing", &ImGui::IsWindowAppearing);
-    luaImGuiNamespace.set_function("IsWindowCollapsed", &ImGui::IsWindowCollapsed);
-
-    luaImGuiNamespace.set_function("IsWindowFocused", sol::overload(
-        [&]() {
-            return ImGui::IsWindowFocused();
-        },
-
-        [&](ImGuiFocusedFlags flags) {
-            return ImGui::IsWindowFocused(flags);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("IsWindowHovered", sol::overload(
-        [&]() {
-            return ImGui::IsWindowHovered();
-        },
-
-        [&](ImGuiHoveredFlags flags) {
-            return ImGui::IsWindowHovered(flags);
-        }
-    ));
-
-    // ImDrawList* GetWindowDrawList()
-
-    luaImGuiNamespace.set_function("GetWindowPos", &ImGui::GetWindowPos);
-    luaImGuiNamespace.set_function("GetWindowSize", &ImGui::GetWindowSize);
-    luaImGuiNamespace.set_function("GetWindowWidth", &ImGui::GetWindowWidth);
-    luaImGuiNamespace.set_function("GetWindowHeight", &ImGui::GetWindowHeight);
-    // ============================
-
-    // ===== Next Window Utilities =====
-    luaImGuiNamespace.set_function("SetNextWindowPos", sol::overload(
-        [&](const ImVec2& pos) {
-            ImGui::SetNextWindowPos(pos);
-        },
-
-        [&](const ImVec2& pos, ImGuiCond cond) {
-            ImGui::SetNextWindowPos(pos, cond);
-        },
-
-        [&](const ImVec2& pos, ImGuiCond cond, const ImVec2& pivot) {
-            ImGui::SetNextWindowPos(pos, cond, pivot);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("SetNextWindowSize", sol::overload(
-        [&](const ImVec2& size) {
-            ImGui::SetNextWindowSize(size);
-        },
-
-        [&](const ImVec2& size, ImGuiCond cond) {
-            ImGui::SetNextWindowSize(size, cond);
-        }
-    ));
+    for (world2d::ImGui::Widget* widget : widgets) {
+        widget->SetLuaEnvironment(luaImGuiNamespace);
+    }
     // =================================
-
-    // ===== Windows Scrolling =====
-    luaImGuiNamespace.set_function("GetScrollX", &ImGui::GetScrollX);
-    luaImGuiNamespace.set_function("GetScrollY", &ImGui::GetScrollY);
-    luaImGuiNamespace.set_function("GetScrollMaxX", &ImGui::GetScrollMaxX);
-    luaImGuiNamespace.set_function("GetScrollMaxY", &ImGui::GetScrollMaxY);
-    luaImGuiNamespace.set_function("SetScrollX", &ImGui::SetScrollX);
-    luaImGuiNamespace.set_function("SetScrollY", &ImGui::SetScrollY);
-
-    luaImGuiNamespace.set_function("SetScrollHereX", sol::overload(
-        [&]() {
-            ImGui::SetScrollHereX();
-        },
-
-        [&](float centerXRatio) {
-            ImGui::SetScrollHereX(centerXRatio);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("SetScrollHereY", sol::overload(
-        [&]() {
-            ImGui::SetScrollHereY();
-        },
-
-        [&](float centerYRatio) {
-            ImGui::SetScrollHereY(centerYRatio);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("SetScrollFromPosX", sol::overload(
-        [&](float localX) {
-            ImGui::SetScrollFromPosX(localX);
-        },
-
-        [&](float localX, float centerXRatio) {
-            ImGui::SetScrollFromPosX(localX, centerXRatio);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("SetScrollFromPosY", sol::overload(
-        [&](float localY) {
-            ImGui::SetScrollFromPosY(localY);
-        },
-
-        [&](float localY, float centerYRatio) {
-            ImGui::SetScrollFromPosY(localY, centerYRatio);
-        }
-    ));
-    // =============================
-
-    // ===== Parameters stacks (shared) =====
-    luaImGuiNamespace.set_function("PushFont", &ImGui::PushFont);
-    luaImGuiNamespace.set_function("PopFont", &ImGui::PopFont);
-
-    luaImGuiNamespace.set_function("PushStyleColor", sol::overload(
-        [&](ImGuiCol idx, ImU32 col) {
-            ImGui::PushStyleColor(idx, col);
-        },
-
-        [&](ImGuiCol idx, const ImVec4& col) {
-            ImGui::PushStyleColor(idx, col);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("PopStyleColor", sol::overload(
-        [&]() {
-            ImGui::PopStyleColor();
-        },
-
-        [&](int count) {
-            ImGui::PopStyleColor(count);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("PushStyleVar", sol::overload(
-        [&](ImGuiStyleVar idx, float val) {
-            ImGui::PushStyleVar(idx, val);
-        },
-
-        [&](ImGuiStyleVar idx, const ImVec2& val) {
-            ImGui::PushStyleVar(idx, val);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("PopStyleVar", sol::overload(
-        [&]() {
-            ImGui::PopStyleVar();
-        },
-
-        [&](int count) {
-            ImGui::PopStyleVar(count);
-        }
-    ));
-
-    // TODO: ImFont* GetFont()
-
-    luaImGuiNamespace.set_function("GetFontSize", &ImGui::GetFontSize);
-    luaImGuiNamespace.set_function("GetFontTexUvWhitePixel", &ImGui::GetFontTexUvWhitePixel);
-    
-    luaImGuiNamespace.set_function("GetColorU32", sol::overload(
-        [&](ImGuiCol idx) {
-            return ImGui::GetColorU32(idx);
-        },
-
-        [&](ImGuiCol idx, float alphaMul) {
-            return ImGui::GetColorU32(idx, alphaMul);
-        },
-
-        [&](const ImVec4& col) {
-            return ImGui::GetColorU32(col);
-        },
-
-        [&](ImU32 col) {
-            return ImGui::GetColorU32(col);
-        }
-    ));
-    // ======================================
-
-    // ===== Parameters stacks (current window) =====
-    luaImGuiNamespace.set_function("PushItemWidth", &ImGui::PushItemWidth);
-    luaImGuiNamespace.set_function("PopItemWidth", &ImGui::PopItemWidth);
-    luaImGuiNamespace.set_function("SetNextItemWidth", &ImGui::SetNextItemWidth);
-    luaImGuiNamespace.set_function("CalcItemWidth", &ImGui::CalcItemWidth);
-
-    luaImGuiNamespace.set_function("PushTextWrapPos", sol::overload(
-        [&]() {
-            ImGui::PushTextWrapPos();
-        },
-
-        [&](float wrapLocalPosX) {
-            ImGui::PushTextWrapPos(wrapLocalPosX);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("PopTextWrapPos", &ImGui::PopTextWrapPos);
-    luaImGuiNamespace.set_function("PushAllowKeyboardFocus", &ImGui::PushAllowKeyboardFocus);
-    luaImGuiNamespace.set_function("PopAllowKeyboardFocus", &ImGui::PopAllowKeyboardFocus);
-    luaImGuiNamespace.set_function("PushButtonRepeat", &ImGui::PushButtonRepeat);
-    luaImGuiNamespace.set_function("PopButtonRepeat", &ImGui::PopButtonRepeat);
-    // ==============================================
-
-    // ===== Cursor / Layout =====
-    luaImGuiNamespace.set_function("Separator", &ImGui::Separator);
-    luaImGuiNamespace.set_function("NewLine", &ImGui::SameLine);
-    luaImGuiNamespace.set_function("Spacing", &ImGui::Spacing);
-    luaImGuiNamespace.set_function("Dummy", &ImGui::Dummy);
-
-    luaImGuiNamespace.set_function("Indent", sol::overload(
-        [&]() {
-            ImGui::Indent();
-        },
-
-        [&](float indentW) {
-            ImGui::Indent(indentW);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("Unindent", sol::overload(
-        [&]() {
-            ImGui::Unindent();
-        },
-
-        [&](float indentW) {
-            ImGui::Unindent(indentW);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("BeginGroup", &ImGui::BeginGroup);
-    luaImGuiNamespace.set_function("EndGroup", &ImGui::EndGroup);
-    luaImGuiNamespace.set_function("GetCursorPos", &ImGui::GetCursorPos);
-    luaImGuiNamespace.set_function("GetCursorPosX", &ImGui::GetCursorPosX);
-    luaImGuiNamespace.set_function("GetCursorPosY", &ImGui::GetCursorPosY);
-    luaImGuiNamespace.set_function("SetCursorPos", &ImGui::SetCursorPos);
-    luaImGuiNamespace.set_function("SetCursorPosX", &ImGui::SetCursorPosX);
-    luaImGuiNamespace.set_function("SetCursorPosY", &ImGui::SetCursorPosY);
-    luaImGuiNamespace.set_function("GetCursorStartPos", &ImGui::GetCursorStartPos);
-    luaImGuiNamespace.set_function("GetCursorScreenPos", &ImGui::GetCursorScreenPos);
-    luaImGuiNamespace.set_function("SetCursorScreenPos", &ImGui::SetCursorScreenPos);
-    luaImGuiNamespace.set_function("AlignTextToFramePadding", &ImGui::AlignTextToFramePadding);
-    luaImGuiNamespace.set_function("GetTextLineHeight", &ImGui::GetTextLineHeight);
-    luaImGuiNamespace.set_function("GetTextLineHeightWithSpacing", &ImGui::GetTextLineHeightWithSpacing);
-    luaImGuiNamespace.set_function("GetFrameHeight", &ImGui::GetFrameHeight);
-    luaImGuiNamespace.set_function("GetFrameHeightWithSpacing", &ImGui::GetFrameHeightWithSpacing);
-    // ===========================
-
-    // ===== Text =====
-    luaImGuiNamespace.set_function("Text", [&](const char* text) {
-        ImGui::Text(text);
-    });
-
-    luaImGuiNamespace.set_function("TextColored", [&](const ImVec4& col, const char* text) {
-        ImGui::TextColored(col, text);
-    });
-
-    luaImGuiNamespace.set_function("TextDisabled", [&](const char* text) {
-        ImGui::TextDisabled(text);
-    });
-
-    luaImGuiNamespace.set_function("TextWrapped", [&](const char* text) {
-        ImGui::TextWrapped(text);
-    });
-
-    luaImGuiNamespace.set_function("LabelText", [&](const char* label, const char* text) {
-        ImGui::LabelText(label, text);
-    });
-
-    luaImGuiNamespace.set_function("BulletText", [&](const char* text) {
-        ImGui::BulletText(text);
-    });
-    // ================
-
-    // ===== Combo Box =====
-    luaImGuiNamespace.set_function("BeginCombo", sol::overload(
-        [&](const char* label, const char* previewValue) {
-            return ImGui::BeginCombo(label, previewValue);
-        },
-
-        [&](const char* label, const char* previewValue, ImGuiComboFlags flags) {
-            return ImGui::BeginCombo(label, previewValue, flags);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("EndCombo", [&]() {
-        ImGui::EndCombo();
-    });
-
-    luaImGuiNamespace.set_function("DragFloat", sol::overload(
-        [&](const char* label, ImGuiFloat* v) {
-            return ImGui::DragFloat(label, &(v->value));
-        },
-
-        [&](const char* label, ImGuiFloat* v, float vSpeed) {
-            return ImGui::DragFloat(label, &(v->value), vSpeed);
-        },
-
-        [&](const char* label, ImGuiFloat* v, float vSpeed, float vMin) {
-            return ImGui::DragFloat(label, &(v->value), vSpeed, vMin);
-        },
-
-        [&](const char* label, ImGuiFloat* v, float vSpeed, float vMin, float vMax) {
-            return ImGui::DragFloat(label, &(v->value), vSpeed, vMin, vMax);
-        },
-
-        [&](const char* label, ImGuiFloat* v, float vSpeed, float vMin, float vMax, const char* format) {
-            return ImGui::DragFloat(label, &(v->value), vSpeed, vMin, vMax, format);
-        },
-
-        [&](const char* label, ImGuiFloat* v, float vSpeed, float vMin, float vMax, const char* format, float power) {
-            return ImGui::DragFloat(label, &(v->value), vSpeed, vMin, vMax, format, power);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("DragFloat2", sol::overload(
-        [&](const char* label, ImGuiFloatArray2* v) {
-            return ImGui::DragFloat2(label, v->data());
-        },
-
-        [&](const char* label, ImGuiFloatArray2* v, float vSpeed) {
-            return ImGui::DragFloat2(label, v->data(), vSpeed);
-        },
-
-        [&](const char* label, ImGuiFloatArray2* v, float vSpeed, float vMin) {
-            return ImGui::DragFloat2(label, v->data(), vSpeed, vMin);
-        },
-
-        [&](const char* label, ImGuiFloatArray2* v, float vSpeed, float vMin, float vMax) {
-            return ImGui::DragFloat2(label, v->data(), vSpeed, vMin, vMax);
-        },
-
-        [&](const char* label, ImGuiFloatArray2* v, float vSpeed, float vMin, float vMax, const char* format) {
-            return ImGui::DragFloat2(label, v->data(), vSpeed, vMin, vMax, format);
-        },
-
-        [&](const char* label, ImGuiFloatArray2* v, float vSpeed, float vMin, float vMax, const char* format, float power) {
-            return ImGui::DragFloat2(label, v->data(), vSpeed, vMin, vMax, format, power);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("DragFloat3", sol::overload(
-        [&](const char* label, ImGuiFloatArray3* v) {
-            return ImGui::DragFloat3(label, v->data());
-        },
-
-        [&](const char* label, ImGuiFloatArray3* v, float vSpeed) {
-            return ImGui::DragFloat3(label, v->data(), vSpeed);
-        },
-
-        [&](const char* label, ImGuiFloatArray3* v, float vSpeed, float vMin) {
-            return ImGui::DragFloat3(label, v->data(), vSpeed, vMin);
-        },
-
-        [&](const char* label, ImGuiFloatArray3* v, float vSpeed, float vMin, float vMax) {
-            return ImGui::DragFloat3(label, v->data(), vSpeed, vMin, vMax);
-        },
-
-        [&](const char* label, ImGuiFloatArray3* v, float vSpeed, float vMin, float vMax, const char* format) {
-            return ImGui::DragFloat3(label, v->data(), vSpeed, vMin, vMax, format);
-        },
-
-        [&](const char* label, ImGuiFloatArray3* v, float vSpeed, float vMin, float vMax, const char* format, float power) {
-            return ImGui::DragFloat3(label, v->data(), vSpeed, vMin, vMax, format, power);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("DragFloat4", sol::overload(
-        [&](const char* label, ImGuiFloatArray4* v) {
-            return ImGui::DragFloat4(label, v->data());
-        },
-
-        [&](const char* label, ImGuiFloatArray4* v, float vSpeed) {
-            return ImGui::DragFloat4(label, v->data(), vSpeed);
-        },
-
-        [&](const char* label, ImGuiFloatArray4* v, float vSpeed, float vMin) {
-            return ImGui::DragFloat4(label, v->data(), vSpeed, vMin);
-        },
-
-        [&](const char* label, ImGuiFloatArray4* v, float vSpeed, float vMin, float vMax) {
-            return ImGui::DragFloat4(label, v->data(), vSpeed, vMin, vMax);
-        },
-
-        [&](const char* label, ImGuiFloatArray4* v, float vSpeed, float vMin, float vMax, const char* format) {
-            return ImGui::DragFloat4(label, v->data(), vSpeed, vMin, vMax, format);
-        },
-
-        [&](const char* label, ImGuiFloatArray4* v, float vSpeed, float vMin, float vMax, const char* format, float power) {
-            return ImGui::DragFloat4(label, v->data(), vSpeed, vMin, vMax, format, power);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("DragFloatRange2", sol::overload(
-        [&](const char* label, ImGuiFloat* vCurrentMin, ImGuiFloat* vCurrentMax) {
-            return ImGui::DragFloatRange2(label, &(vCurrentMin->value), &(vCurrentMax->value));
-        },
-
-        [&](const char* label, ImGuiFloat* vCurrentMin, ImGuiFloat* vCurrentMax, float vSpeed) {
-            return ImGui::DragFloatRange2(label, &(vCurrentMin->value), &(vCurrentMax->value), vSpeed);
-        },
-
-        [&](const char* label, ImGuiFloat* vCurrentMin, ImGuiFloat* vCurrentMax, float vSpeed, float vMin) {
-            return ImGui::DragFloatRange2(label, &(vCurrentMin->value), &(vCurrentMax->value), vSpeed, vMin);
-        },
-
-        [&](const char* label, ImGuiFloat* vCurrentMin, ImGuiFloat* vCurrentMax, float vSpeed, float vMin, float vMax) {
-            return ImGui::DragFloatRange2(label, &(vCurrentMin->value), &(vCurrentMax->value), vSpeed, vMin, vMax);
-        },
-
-        [&](const char* label, ImGuiFloat* vCurrentMin, ImGuiFloat* vCurrentMax, float vSpeed, float vMin, float vMax, const char* format) {
-            return ImGui::DragFloatRange2(label, &(vCurrentMin->value), &(vCurrentMax->value), vSpeed, vMin, vMax, format);
-        },
-
-        [&](const char* label, ImGuiFloat* vCurrentMin, ImGuiFloat* vCurrentMax, float vSpeed, float vMin, float vMax, const char* format, const char* formatMax) {
-            return ImGui::DragFloatRange2(label, &(vCurrentMin->value), &(vCurrentMax->value), vSpeed, vMin, vMax, format, formatMax);
-        },
-
-        [&](const char* label, ImGuiFloat* vCurrentMin, ImGuiFloat* vCurrentMax, float vSpeed, float vMin, float vMax, const char* format, const char* formatMax, float power) {
-            return ImGui::DragFloatRange2(label, &(vCurrentMin->value), &(vCurrentMax->value), vSpeed, vMin, vMax, format, formatMax, power);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("DragInt", sol::overload(
-        [&](const char* label, ImGuiInt* v) {
-            return ImGui::DragInt(label, &(v->value));
-        },
-
-        [&](const char* label, ImGuiInt* v, float vSpeed) {
-            return ImGui::DragInt(label, &(v->value), vSpeed);
-        },
-
-        [&](const char* label, ImGuiInt* v, float vSpeed, int vMin) {
-            return ImGui::DragInt(label, &(v->value), vSpeed, vMin);
-        },
-
-        [&](const char* label, ImGuiInt* v, float vSpeed, int vMin, int vMax) {
-            return ImGui::DragInt(label, &(v->value), vSpeed, vMin, vMax);
-        },
-
-        [&](const char* label, ImGuiInt* v, float vSpeed, int vMin, int vMax, const char* format) {
-            return ImGui::DragInt(label, &(v->value), vSpeed, vMin, vMax, format);
-        }
-
-        // TODO: add DragInt2, DragInt3, DragInt4, DragIntRange2, DragScalar, DragScalarN
-    ));
-    // =====================
-
-    // ===== Sliders =====
-    luaImGuiNamespace.set_function("SliderFloat", sol::overload(
-        [&](const char* label, ImGuiFloat* v, float vMin, float vMax) {
-            return ImGui::SliderFloat(label, &(v->value), vMin, vMax);
-        },
-
-        [&](const char* label, ImGuiFloat* v, float vMin, float vMax, const char* format) {
-            return ImGui::SliderFloat(label, &(v->value), vMin, vMax, format);
-        },
-
-        [&](const char* label, ImGuiFloat* v, float vMin, float vMax, const char* format, float power) {
-            return ImGui::SliderFloat(label, &(v->value), vMin, vMax, format, power);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("SliderFloat2", sol::overload(
-        [&](const char* label, ImGuiFloatArray2* v, float vMin, float vMax) {
-            return ImGui::SliderFloat2(label, v->data(), vMin, vMax);
-        },
-
-        [&](const char* label, ImGuiFloatArray2* v, float vMin, float vMax, const char* format) {
-            return ImGui::SliderFloat2(label, v->data(), vMin, vMax, format);
-        },
-
-        [&](const char* label, ImGuiFloatArray2* v, float vMin, float vMax, const char* format, float power) {
-            return ImGui::SliderFloat2(label, v->data(), vMin, vMax, format, power);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("SliderFloat3", sol::overload(
-        [&](const char* label, ImGuiFloatArray3* v, float vMin, float vMax) {
-            return ImGui::SliderFloat3(label, v->data(), vMin, vMax);
-        },
-
-        [&](const char* label, ImGuiFloatArray3* v, float vMin, float vMax, const char* format) {
-            return ImGui::SliderFloat3(label, v->data(), vMin, vMax, format);
-        },
-
-        [&](const char* label, ImGuiFloatArray3* v, float vMin, float vMax, const char* format, float power) {
-            return ImGui::SliderFloat3(label, v->data(), vMin, vMax, format, power);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("SliderFloat4", sol::overload(
-        [&](const char* label, ImGuiFloatArray4* v, float vMin, float vMax) {
-            return ImGui::SliderFloat4(label, v->data(), vMin, vMax);
-        },
-
-        [&](const char* label, ImGuiFloatArray4* v, float vMin, float vMax, const char* format) {
-            return ImGui::SliderFloat4(label, v->data(), vMin, vMax, format);
-        },
-
-        [&](const char* label, ImGuiFloatArray4* v, float vMin, float vMax, const char* format, float power) {
-            return ImGui::SliderFloat4(label, v->data(), vMin, vMax, format, power);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("SliderAngle", sol::overload(
-        [&](const char* label, ImGuiFloat* vRad) {
-            return ImGui::SliderAngle(label, &(vRad->value));
-        },
-
-        [&](const char* label, ImGuiFloat* vRad, float vDegreesMin) {
-            return ImGui::SliderAngle(label, &(vRad->value), vDegreesMin);
-        },
-
-        [&](const char* label, ImGuiFloat* vRad, float vDegreesMin, float vDegreesMax) {
-            return ImGui::SliderAngle(label, &(vRad->value), vDegreesMin, vDegreesMax);
-        },
-
-        [&](const char* label, ImGuiFloat* vRad, float vDegreesMin, float vDegreesMax, const char* format) {
-            return ImGui::SliderAngle(label, &(vRad->value), vDegreesMin, vDegreesMax, format);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("SliderInt", sol::overload(
-        [&](const char* label, ImGuiInt* v, int vMin, int vMax) {
-            return ImGui::SliderInt(label, &(v->value), vMin, vMax);
-        },
-
-        [&](const char* label, ImGuiInt* v, int vMin, int vMax, const char* format) {
-            return ImGui::SliderInt(label, &(v->value), vMin, vMax, format);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("SliderInt2", sol::overload(
-        [&](const char* label, ImGuiIntArray2* v, int vMin, int vMax) {
-            return ImGui::SliderInt2(label, v->data(), vMin, vMax);
-        },
-
-        [&](const char* label, ImGuiIntArray2* v, int vMin, int vMax, const char* format) {
-            return ImGui::SliderInt2(label, v->data(), vMin, vMax, format);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("SliderInt3", sol::overload(
-        [&](const char* label, ImGuiIntArray3* v, int vMin, int vMax) {
-            return ImGui::SliderInt3(label, v->data(), vMin, vMax);
-        },
-
-        [&](const char* label, ImGuiIntArray3* v, int vMin, int vMax, const char* format) {
-            return ImGui::SliderInt3(label, v->data(), vMin, vMax, format);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("SliderInt4", sol::overload(
-        [&](const char* label, ImGuiIntArray4* v, int vMin, int vMax) {
-            return ImGui::SliderInt4(label, v->data(), vMin, vMax);
-        },
-
-        [&](const char* label, ImGuiIntArray4* v, int vMin, int vMax, const char* format) {
-            return ImGui::SliderInt4(label, v->data(), vMin, vMax, format);
-        }
-    ));
-    // ===================
-
-    // ===== Input with Keyboard =====
-    luaImGuiNamespace.set_function("InputFloat", sol::overload(
-        [&](const char* label, ImGuiFloat* v) {
-            return ImGui::InputFloat(label, &(v->value));
-        },
-
-        [&](const char* label, ImGuiFloat* v, float step) {
-            return ImGui::InputFloat(label, &(v->value), step);
-        },
-
-        [&](const char* label, ImGuiFloat* v, float step, float step_fast) {
-            return ImGui::InputFloat(label, &(v->value), step, step_fast);
-        },
-
-        [&](const char* label, ImGuiFloat* v, float step, float step_fast, const char* format) {
-            return ImGui::InputFloat(label, &(v->value), step, step_fast, format);
-        },
-
-        [&](const char* label, ImGuiFloat* v, float step, float step_fast, const char* format, ImGuiInputTextFlags flags) {
-            return ImGui::InputFloat(label, &(v->value), step, step_fast, format, flags);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("InputFloat2", sol::overload(
-        [&](const char* label, ImGuiFloatArray2* v) {
-            return ImGui::InputFloat2(label, v->data());
-        },
-
-        [&](const char* label, ImGuiFloatArray2* v, const char* format) {
-            return ImGui::InputFloat2(label, v->data(), format);
-        },
-
-        [&](const char* label, ImGuiFloatArray2* v, const char* format, ImGuiInputTextFlags flags) {
-            return ImGui::InputFloat2(label, v->data(), format, flags);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("InputFloat3", sol::overload(
-        [&](const char* label, ImGuiFloatArray3* v) {
-            return ImGui::InputFloat3(label, v->data());
-        },
-
-        [&](const char* label, ImGuiFloatArray3* v, const char* format) {
-            return ImGui::InputFloat3(label, v->data(), format);
-        },
-
-        [&](const char* label, ImGuiFloatArray3* v, const char* format, ImGuiInputTextFlags flags) {
-            return ImGui::InputFloat3(label, v->data(), format, flags);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("InputFloat4", sol::overload(
-        [&](const char* label, ImGuiFloatArray4* v) {
-            return ImGui::InputFloat4(label, v->data());
-        },
-
-        [&](const char* label, ImGuiFloatArray4* v, const char* format) {
-            return ImGui::InputFloat4(label, v->data(), format);
-        },
-
-        [&](const char* label, ImGuiFloatArray4* v, const char* format, ImGuiInputTextFlags flags) {
-            return ImGui::InputFloat4(label, v->data(), format, flags);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("InputInt", sol::overload(
-        [&](const char* label, ImGuiInt* v) {
-            return ImGui::InputInt(label, &(v->value));
-        },
-
-        [&](const char* label, ImGuiInt* v, int step) {
-            return ImGui::InputInt(label, &(v->value), step);
-        },
-
-        [&](const char* label, ImGuiInt* v, int step, int step_fast) {
-            return ImGui::InputInt(label, &(v->value), step, step_fast);
-        },
-
-        [&](const char* label, ImGuiInt* v, int step, int step_fast, ImGuiInputTextFlags flags) {
-            return ImGui::InputInt(label, &(v->value), step, step_fast, flags);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("InputInt2", sol::overload(
-        [&](const char* label, ImGuiIntArray2* v) {
-            return ImGui::InputInt2(label, v->data());
-        },
-
-        [&](const char* label, ImGuiIntArray2* v, ImGuiInputTextFlags flags) {
-            return ImGui::InputInt2(label, v->data(), flags);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("InputInt3", sol::overload(
-        [&](const char* label, ImGuiIntArray3* v) {
-            return ImGui::InputInt3(label, v->data());
-        },
-
-        [&](const char* label, ImGuiIntArray3* v, ImGuiInputTextFlags flags) {
-            return ImGui::InputInt3(label, v->data(), flags);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("InputInt4", sol::overload(
-        [&](const char* label, ImGuiIntArray4* v) {
-            return ImGui::InputInt4(label, v->data());
-        },
-
-        [&](const char* label, ImGuiIntArray4* v, ImGuiInputTextFlags flags) {
-            return ImGui::InputInt4(label, v->data(), flags);
-        }
-    ));
-    // ===============================
-
-    // ===== Color Editor/Picker =====
-    luaImGuiNamespace.set_function("ColorEdit3", sol::overload(
-        [&](const char* label, ImGuiFloatArray3* col) {
-            return ImGui::ColorEdit3(label, col->data());
-        },
-
-        [&](const char* label, ImGuiFloatArray3* col, ImGuiColorEditFlags flags) {
-            return ImGui::ColorEdit3(label, col->data(), flags);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("ColorEdit4", sol::overload(
-        [&](const char* label, ImGuiFloatArray4* col) {
-            return ImGui::ColorEdit4(label, col->data());
-        },
-
-        [&](const char* label, ImGuiFloatArray4* col, ImGuiColorEditFlags flags) {
-            return ImGui::ColorEdit4(label, col->data(), flags);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("ColorPicker3", sol::overload(
-        [&](const char* label, ImGuiFloatArray3* col) {
-            return ImGui::ColorPicker3(label, col->data());
-        },
-
-        [&](const char* label, ImGuiFloatArray3* col, ImGuiColorEditFlags flags) {
-            return ImGui::ColorPicker3(label, col->data(), flags);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("ColorPicker4", sol::overload(
-        [&](const char* label, ImGuiFloatArray4* col) {
-            return ImGui::ColorPicker4(label, col->data());
-        },
-
-        [&](const char* label, ImGuiFloatArray4* col, ImGuiColorEditFlags flags) {
-            return ImGui::ColorPicker4(label, col->data(), flags);
-        },
-
-        [&](const char* label, ImGuiFloatArray4* col, ImGuiColorEditFlags flags, const ImGuiFloat* ref_col) {
-            return ImGui::ColorPicker4(label, col->data(), flags, &(ref_col->value));
-        }
-    ));
-
-    luaImGuiNamespace.set_function("ColorButton", sol::overload(
-        [&](const char* descId, const ImVec4& col) {
-            return ImGui::ColorButton(descId, col);
-        },
-
-        [&](const char* descId, const ImVec4& col, ImGuiColorEditFlags flags) {
-            return ImGui::ColorButton(descId, col, flags);
-        },
-
-        [&](const char* descId, const ImVec4& col, ImGuiColorEditFlags flags, ImVec2 size) {
-            return ImGui::ColorButton(descId, col, flags, size);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("SetColorEditOptions", [&](ImGuiColorEditFlags flags) {
-        ImGui::SetColorEditOptions(flags);
-    });
-    // ===============================
-
-    // ===== Selectables =====
-    luaImGuiNamespace.set_function("Selectable", sol::overload(
-        [&](const char* label) {
-            return ImGui::Selectable(label);
-        },
-
-        [&](const char* label, bool selected) {
-            return ImGui::Selectable(label, selected);
-        },
-
-        [&](const char* label, bool selected, ImGuiSelectableFlags flags) {
-            return ImGui::Selectable(label, selected, flags);
-        },
-
-        [&](const char* label, bool selected, ImGuiSelectableFlags flags, const ImVec2& size) {
-            return ImGui::Selectable(label, selected, flags, size);
-        },
-
-        [&](const char* label, ImGuiBool* pSelected) {
-            return ImGui::Selectable(label, &(pSelected->value));
-        },
-
-        [&](const char* label, ImGuiBool* pSelected, ImGuiSelectableFlags flags) {
-            return ImGui::Selectable(label, &(pSelected->value), flags);
-        },
-
-        [&](const char* label, ImGuiBool* pSelected, ImGuiSelectableFlags flags, const ImVec2& size) {
-            return ImGui::Selectable(label, &(pSelected->value), flags, size);
-        }
-    ));
-    // =======================
-
-    // ===== Data Plotting =====
-    luaImGuiNamespace.set_function("PlotLines", [&](const char* label, sol::table values) {
-        std::vector<float> newvalues;
-        newvalues.reserve(values.size());
-
-        for (auto pair : values) {
-            if (pair.first.get_type() != sol::type::number) continue;
-
-            if (pair.second.get_type() == sol::type::number) {
-                newvalues.push_back(pair.second.as<float>());
-            } else {
-                luaL_error(lua.lua_state(), "Invalid value for PlotLines");
-            }
-        }
-
-        ImGui::PlotLines(label, newvalues.data(), newvalues.size());
-    });
-    // =========================
-
-    // ===== Menus =====
-    luaImGuiNamespace.set_function("BeginMenuBar", &ImGui::BeginMenuBar);
-    luaImGuiNamespace.set_function("EndMenuBar", &ImGui::EndMenuBar);
-    luaImGuiNamespace.set_function("BeginMainMenuBar", &ImGui::BeginMainMenuBar);
-    luaImGuiNamespace.set_function("EndMainMenuBar", &ImGui::EndMainMenuBar);
-
-    luaImGuiNamespace.set_function("BeginMenu", sol::overload(
-        [&](const char* label) {
-            return ImGui::BeginMenu(label);
-        },
-
-        [&](const char* label, bool enabled) {
-            return ImGui::BeginMenu(label, enabled);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("EndMenu", &ImGui::EndMenu);
-
-    luaImGuiNamespace.set_function("MenuItem", sol::overload(
-        [&](const char* label) {
-            return ImGui::MenuItem(label);
-        },
-
-        [&](const char* label, const char* shortcut) {
-            return ImGui::MenuItem(label, shortcut);
-        },
-
-        [&](const char* label, const char* shortcut, bool selected) {
-            return ImGui::MenuItem(label, shortcut, selected);
-        },
-
-        [&](const char* label, const char* shortcut, bool selected, bool enabled) {
-            return ImGui::MenuItem(label, shortcut, selected, enabled);
-        }
-
-        // TODO: bool MenuItem(const char* label, const char* shortcut, bool* p_selected, bool enabled = true)
-    ));
-    // =================
-
-    // ===== Tooltips =====
-    luaImGuiNamespace.set_function("BeginTooltip", [&]() {
-        ImGui::BeginTooltip();
-    });
-
-    luaImGuiNamespace.set_function("EndTooltip", [&]() {
-        ImGui::EndTooltip();
-    });
-
-    luaImGuiNamespace.set_function("SetTooltip", [&](const char* text) {
-        return ImGui::SetTooltip(text);
-    });
-    // ====================
-
-    // ===== Tab Bars, Tabs =====
-    luaImGuiNamespace.set_function("BeginTabBar", sol::overload(
-        [&](const char* strId) {
-            return ImGui::BeginTabBar(strId);
-        },
-
-        [&](const char* strId, ImGuiTabBarFlags flags) {
-            return ImGui::BeginTabBar(strId, flags);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("EndTabBar", &ImGui::EndTabBar);
-
-    luaImGuiNamespace.set_function("BeginTabItem", sol::overload(
-        [&](const char* label) {
-            return ImGui::BeginTabItem(label);
-        },
-
-        [&](const char* label, ImGuiBool* pOpen) {
-            return ImGui::BeginTabItem(label, &(pOpen->value));
-        },
-
-        [&](const char* label, ImGuiBool* pOpen, ImGuiTabItemFlags flags) {
-            return ImGui::BeginTabItem(label, &(pOpen->value), flags);
-        }
-    ));
-
-    luaImGuiNamespace.set_function("EndTabItem", &ImGui::EndTabItem);
-    luaImGuiNamespace.set_function("SetTabItemClosed", &ImGui::SetTabItemClosed);
-    // ==========================
 
     luaWorld2dNamespace["ImGui"] = luaImGuiNamespace;
     return true;
@@ -1468,14 +584,14 @@ void world2d::ImGuiModule::Update(double deltaTime) {
     if (mImGuiInitialized) {
         ImGui_ImplSDLRenderer_NewFrame();
         ImGui_ImplSDL2_NewFrame();
-        ImGui::NewFrame();
+        ::ImGui::NewFrame();
     }
 }
 
 void world2d::ImGuiModule::Render() {
     if (mImGuiInitialized) {
-        ImGui::Render();
-        ImGui_ImplSDLRenderer_RenderDrawData(ImGui::GetDrawData());
+        ::ImGui::Render();
+        ImGui_ImplSDLRenderer_RenderDrawData(::ImGui::GetDrawData());
     }
 }
 
@@ -1484,10 +600,10 @@ void world2d::ImGuiModule::InitializeImGui() {
         return;
     }
 
-    IMGUI_CHECKVERSION();
+    ::ImGui::DebugCheckVersionAndDataLayout(IMGUI_VERSION, sizeof(ImGuiIO), sizeof(ImGuiStyle), sizeof(ImVec2), sizeof(ImVec4), sizeof(ImDrawVert), sizeof(ImDrawIdx));
 
-    ImGui::CreateContext();
-    ImGui::StyleColorsDark();
+    ::ImGui::CreateContext();
+    ::ImGui::StyleColorsDark();
 
     SDL_Window* window = mEngine->GetSDLWindow();
     SDL_Renderer* renderer = mEngine->GetSDLRenderer();

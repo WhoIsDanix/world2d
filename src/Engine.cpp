@@ -1,14 +1,10 @@
 /*
-    From sol2 documentation:
-
     * sol::stack::call and its variants will, if no templated boolean is specified, check all of the arguments for a function call
     * All calls from Lua will have their arguments checked
 */
 #define SOL_SAFE_FUNCTION_CALLS 1
 
 /*
-    From sol2 documentation:
-
     * All uses of sol::function and sol::stack_function will default to sol::protected_function and sol::stack_protected_function, respectively, rather than sol::unsafe_function and sol::stack_unsafe_function
     * Note this does not apply to sol::stack_aligned_function: this variant must always be unprotected due to stack positioning requirements, especially in use with sol::stack_count
     * Will make any sol::state_view::script calls default to their safe variants if there is no supplied environment or error handler function

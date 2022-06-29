@@ -1,13 +1,12 @@
 function world2d.Init()
-    world2d.Window.SetTitle("Collision Check")
+    world2d.Window.SetTitle("Collision Test")
     world2d.Window.SetResizable(false)
 
-    player = world2d.Graphics.Sprite.new("examples/dog.png", 20, 20, 80, 80)
+    player = world2d.Graphics.Sprite.new("examples/assets/dog.png", 120, 120, 80, 80)
     player_speed = 1
 
-    butterdog = world2d.Graphics.Sprite.new("examples/dog.png", 120, 120, 80, 80)
-
-    print("Movement: WASD")
+    butterdog = world2d.Graphics.Sprite.new("examples/assets/dog.png", 240, 240, 80, 80)
+    font = world2d.Graphics.Font.new("examples/fonts/AnekMalayalam-Bold.ttf", 24)
 end
 
 function world2d.Update(dt)
@@ -40,6 +39,8 @@ function world2d.Update(dt)
 end
 
 function world2d.Render()
+    world2d.Graphics.Draw(font, "Movement: WASD", 25, 25)
+
     world2d.Graphics.Draw(player)
     world2d.Graphics.Draw(butterdog)
 end
