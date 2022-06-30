@@ -20,4 +20,4 @@
 Documentation is available at: [here](https://world2d.gitbook.io/world2d/)
 
 # Credits
-- Gelatek (for making thumbnail)
+- [StrokeThePea](https://github.com/StrokeThePea) (for making thumbnail)
