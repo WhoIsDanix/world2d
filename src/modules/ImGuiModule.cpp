@@ -16,6 +16,7 @@
 #include "world2d/lua/imgui/structures/IntArray3.h"
 #include "world2d/lua/imgui/structures/IntArray4.h"
 
+#include "world2d/lua/imgui/structures/String.h"
 #include "world2d/lua/imgui/structures/StyleColors.h"
 
 #include "world2d/lua/imgui/Widget.h"
@@ -31,6 +32,7 @@
 #include "world2d/lua/imgui/widgets/FocusActivationWidget.h"
 #include "world2d/lua/imgui/widgets/ItemWidgetUtilitiesWidget.h"
 #include "world2d/lua/imgui/widgets/KeyboardInputWidget.h"
+#include "world2d/lua/imgui/widgets/ListBoxWidget.h"
 #include "world2d/lua/imgui/widgets/MainWidget.h"
 #include "world2d/lua/imgui/widgets/MenuWidget.h"
 #include "world2d/lua/imgui/widgets/MiscellaneousUtilitiesWidget.h"
@@ -287,6 +289,11 @@ bool world2d::ImGuiModule::Initialize() {
 
         sol::meta_function::new_index,
         &::world2d::ImGui::IntArray4::LuaNewIndexOperator
+    );
+
+    luaImGuiNamespace.new_usertype<::world2d::ImGui::String>("String",
+        sol::constructors<::world2d::ImGui::String(), ::world2d::ImGui::String(std::string)>(),
+        "value", &::world2d::ImGui::String::value
     );
     // ======================
 
@@ -547,6 +554,7 @@ bool world2d::ImGuiModule::Initialize() {
         world2d::ImGui::FocusActivationWidget::Get(),
         world2d::ImGui::ItemWidgetUtilitiesWidget::Get(),
         world2d::ImGui::KeyboardInputWidget::Get(),
+        world2d::ImGui::ListBoxWidget::Get(),
         world2d::ImGui::MainWidget::Get(),
         world2d::ImGui::MenuWidget::Get(),
         world2d::ImGui::MiscellaneousUtilitiesWidget::Get(),

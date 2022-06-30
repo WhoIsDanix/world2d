@@ -1,5 +1,9 @@
 #include "world2d/lua/imgui/widgets/KeyboardInputWidget.h"
+
 #include "imgui/imgui.h"
+#include "imgui/imgui_stdlib.h"
+
+#include "world2d/lua/imgui/structures/String.h"
 
 #include "world2d/lua/imgui/structures/Float.h"
 #include "world2d/lua/imgui/structures/FloatArray2.h"
@@ -16,6 +20,40 @@ world2d::ImGui::KeyboardInputWidget::KeyboardInputWidget() {
 }
 
 void world2d::ImGui::KeyboardInputWidget::SetLuaEnvironment(sol::table& luaImGuiNamespace) {
+    luaImGuiNamespace.set_function("InputText", sol::overload(
+        [&](const char* label, ::world2d::ImGui::String* str) {
+            return ::ImGui::InputText(label, &(str->value));
+        },
+
+        [&](const char* label, ::world2d::ImGui::String* str, ImGuiInputTextFlags flags) {
+            return ::ImGui::InputText(label, &(str->value), flags);
+        }
+    ));
+
+    luaImGuiNamespace.set_function("InputTextMultiline", sol::overload(
+        [&](const char* label, ::world2d::ImGui::String* str) {
+            return ::ImGui::InputTextMultiline(label, &(str->value));
+        },
+
+        [&](const char* label, ::world2d::ImGui::String* str, const ImVec2& size) {
+            return ::ImGui::InputTextMultiline(label, &(str->value), size);
+        },
+
+        [&](const char* label, ::world2d::ImGui::String* str, const ImVec2& size, ImGuiInputTextFlags flags) {
+            return ::ImGui::InputTextMultiline(label, &(str->value), size, flags);
+        }
+    ));
+
+    luaImGuiNamespace.set_function("InputTextWithHint", sol::overload(
+        [&](const char* label, const char* hint, ::world2d::ImGui::String* str) {
+            return ::ImGui::InputTextWithHint(label, hint, &(str->value));
+        },
+
+        [&](const char* label, const char* hint, ::world2d::ImGui::String* str, ImGuiInputTextFlags flags) {
+            return ::ImGui::InputTextWithHint(label, hint, &(str->value), flags);
+        }
+    ));
+
     luaImGuiNamespace.set_function("InputFloat", sol::overload(
         [&](const char* label, world2d::ImGui::Float* v) {
             return ::ImGui::InputFloat(label, &(v->value));

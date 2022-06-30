@@ -98,7 +98,9 @@ bool world2d::Engine::CompileAndRun(const char* filename) {
     mLuaState.set_panic(sol::c_call<decltype(&engine_at_panic), &engine_at_panic>);
 
     sol::table luaWorld2dNamespace { mLuaState.create_named_table("world2d") };
+
     luaWorld2dNamespace["Version"] = WORLD2D_VERSION;
+    luaWorld2dNamespace.set_function("GetPlatform", &SDL_GetPlatform);
 
     for (world2d::Module* module : mModules) {
         if (!module->Initialize()) {

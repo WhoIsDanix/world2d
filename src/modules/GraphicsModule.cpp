@@ -80,6 +80,16 @@ bool world2d::GraphicsModule::Initialize() {
             world2d::Sprite(world2d::Texture&, int, int, int, int)
         >(),
 
+        "texture", sol::property(
+            [&](world2d::Sprite& self) {
+                return *(self.mTexture);
+            },
+
+            [&](world2d::Sprite& self, world2d::Texture& newTexture) {
+                self.mTexture = std::make_shared<world2d::Texture>(newTexture);
+            }
+        ),
+
         "x",
         &world2d::Sprite::x,
 

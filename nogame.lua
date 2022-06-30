@@ -35,6 +35,7 @@ function world2d.Render()
 
     ImGui.Text("world2d Version: "..world2d.Version)
     ImGui.Text("ImGui Version: "..ImGui.Version)
+    ImGui.Text("Lua Version: ".._VERSION)
     ImGui.Text("Delta time: "..debug_dt)
 
     ImGui.Separator()

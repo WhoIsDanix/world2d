@@ -6,10 +6,8 @@
 
 namespace world2d {
     class Sprite {
-    private:
-        std::shared_ptr<world2d::Texture> mTexture;
-
     public:
+        std::shared_ptr<world2d::Texture> mTexture;
         int x = 0, y = 0, w = 0, h = 0;
 
         Sprite(const char* pathtotexture);
